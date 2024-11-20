@@ -3,7 +3,10 @@ package main
 import (
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
+	"github.com/kekaswork/grpc-auth/internal/app"
 	"github.com/kekaswork/grpc-auth/internal/config"
 )
 
@@ -14,16 +17,27 @@ const (
 )
 
 func main() {
-	// TODO: init app configuration
+	// init app configuration
 	cfg := config.MustLoad()
 	_ = cfg
 
-	// TODO: init logger
+	// init logger
 	log := setupLogger(cfg.Env)
 	_ = log
 
-	// TODO: init application itself
-	// TODO: start grpc server
+	// init main application
+	mainApp := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.TokenTTL)
+
+	// Run gRPC server
+	go mainApp.GRPCSrv.MustRun()
+
+	// gracefull shotdown
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+
+	signal := <-stop
+	log.Info("application stopped", slog.String("signal", signal.String()))
+	mainApp.GRPCSrv.Stop()
 }
 
 func setupLogger(env string) (log *slog.Logger) {
