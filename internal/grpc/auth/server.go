@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"errors"
 
+	"github.com/kekaswork/grpc-auth/internal/services/auth"
 	authv1 "github.com/kekaswork/protos/gen/go/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -14,7 +16,7 @@ type Auth interface {
 		ctx context.Context,
 		email string,
 		password string,
-		appID int32,
+		appID int,
 	) (token string, err error)
 	RegisterNewUser(
 		ctx context.Context,
@@ -48,9 +50,16 @@ func (s *serverAPI) Login(
 		ctx,
 		req.GetEmail(),
 		req.GetPassword(),
-		req.GetAppId(),
+		int(req.GetAppId()),
 	)
 	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			return nil, status.Error(codes.InvalidArgument, "invalid credentials")
+		}
+		if errors.Is(err, auth.ErrInvalidAppID) {
+			return nil, status.Error(codes.InvalidArgument, "invalid app id")
+		}
+
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 
@@ -73,6 +82,9 @@ func (s *serverAPI) Register(
 		req.GetPassword(),
 	)
 	if err != nil {
+		if errors.Is(err, auth.ErrUserExists) {
+			return nil, status.Error(codes.AlreadyExists, "user already exists")
+		}
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 
@@ -94,6 +106,9 @@ func (s *serverAPI) IsAdmin(
 		req.GetUserId(),
 	)
 	if err != nil {
+		if errors.Is(err, auth.ErrInvalidAppID) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
 		return nil, status.Error(codes.Internal, "internal error")
 	}
 

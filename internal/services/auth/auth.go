@@ -108,6 +108,20 @@ func (a *Auth) Login(
 	// retrieving app
 	app, err := a.appProvider.App(ctx, appID)
 	if err != nil {
+		if errors.Is(err, storage.ErrAppNotFound) {
+			log.Warn("app not found", slog.Attr{
+				Key:   "error",
+				Value: slog.StringValue(err.Error()),
+			})
+
+			return "", fmt.Errorf("%s: %w", op, ErrInvalidAppID)
+		}
+
+		log.Warn("invalid credentials", slog.Attr{
+			Key:   "error",
+			Value: slog.StringValue(err.Error()),
+		})
+
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
